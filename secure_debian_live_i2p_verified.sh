@@ -271,8 +271,204 @@ else
     echo "[+] Adding official I2P repository"
 
 
-    curl -fsSL \
-    https://geti2p.net/_static/i2p-debian-repo.key.asc \
+
+
+
+
+
+# ============================================================
+# JAVA + I2P INSTALLATION FIX FOR DEBIAN 13
+# ============================================================
+
+
+echo "============================================"
+echo " Installing Java and I2P"
+echo "============================================"
+
+
+
+# Install dependencies
+
+apt update
+
+apt install -y \
+curl \
+gnupg \
+ca-certificates \
+lsb-release
+
+
+
+# ------------------------------------------------------------
+# JAVA CHECK
+# ------------------------------------------------------------
+
+
+echo "[+] Checking Java"
+
+
+if command -v java >/dev/null 2>&1
+then
+
+    echo "[OK] Java already installed"
+
+else
+
+    echo "[+] Installing Java"
+
+    apt install -y default-jre
+
+
+fi
+
+
+
+if command -v java >/dev/null 2>&1
+then
+
+    echo "[OK] Java verification passed"
+
+    java -version
+
+else
+
+    echo "[FAIL] Java installation failed"
+
+fi
+
+
+
+
+# ------------------------------------------------------------
+# I2P REPOSITORY
+# ------------------------------------------------------------
+
+
+echo "[+] Adding official I2P repository"
+
+
+
+# Download official key
+
+curl -o /tmp/i2p-archive-keyring.gpg \
+https://i2p.net/i2p-archive-keyring.gpg
+
+
+
+if [ -f /tmp/i2p-archive-keyring.gpg ]
+then
+
+    echo "[OK] I2P key downloaded"
+
+else
+
+    echo "[FAIL] Cannot download I2P key"
+
+    exit 1
+
+fi
+
+
+
+# Install key
+
+cp /tmp/i2p-archive-keyring.gpg \
+/usr/share/keyrings/i2p-archive-keyring.gpg
+
+
+
+chmod 644 /usr/share/keyrings/i2p-archive-keyring.gpg
+
+
+
+echo "[OK] I2P key installed"
+
+
+
+
+# Detect Debian version automatically
+
+DEBIAN_CODENAME=$(lsb_release -sc)
+
+
+
+echo "[+] Debian detected:"
+echo "$DEBIAN_CODENAME"
+
+
+
+
+# Create repository
+
+
+echo "deb [signed-by=/usr/share/keyrings/i2p-archive-keyring.gpg] https://deb.i2p.net/ $DEBIAN_CODENAME main" \
+> /etc/apt/sources.list.d/i2p.list
+
+
+
+echo "[OK] I2P repository created"
+
+
+
+
+# Update repository
+
+apt update
+
+
+
+
+# Install I2P
+
+echo "[+] Installing I2P"
+
+
+
+apt install -y i2p i2p-keyring
+
+
+
+
+# ------------------------------------------------------------
+# VERIFY INSTALLATION
+# ------------------------------------------------------------
+
+
+echo "============================================"
+echo " I2P Verification"
+echo "============================================"
+
+
+
+if dpkg -s i2p >/dev/null 2>&1
+then
+
+    echo "[OK] I2P package installed"
+
+else
+
+    echo "[FAIL] I2P package missing"
+
+fi
+
+
+
+if command -v i2prouter >/dev/null 2>&1
+then
+
+    echo "[OK] i2prouter command found"
+
+else
+
+    echo "[WARNING] i2prouter not in PATH"
+
+fi
+
+
+
+
+    
+
     | gpg --dearmor \
     -o /usr/share/keyrings/i2p-archive-keyring.gpg
 
