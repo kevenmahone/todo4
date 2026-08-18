@@ -1,3 +1,9 @@
+
+https://chatgpt.com/share/6a8470a9-1c80-83ed-bb8e-852c73ee879b?ogimg=plain
+
+
+
+
 cree un fichier
 
 nano secure_debian_live_i2p_verified.sh
