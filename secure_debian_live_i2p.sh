@@ -1,73 +1,141 @@
 #!/bin/bash
 
 # ============================================================
-# Secure Debian Live + i2pd Configuration Script
-# Author: ChatGPT
+# Secure Debian Live + Java I2P + I2PSnark Setup
+#
 # Purpose:
-# Configure a temporary Debian Live session with:
-# - i2pd I2P router
-# - UFW firewall
-# - AppArmor
-# - Firejail
-# - Kernel security settings
-# - Basic system hardening
+# - Prepare a temporary Debian Live session
+# - Install Java I2P router
+# - Install I2PSnark support
+# - Apply basic security hardening
+#
+# Design:
+# - No persistence required
+# - Works from RAM-based Debian Live
+# - Intended to be re-run after every reboot
 #
 # WARNING:
-# Debian Live without persistence loses all changes after reboot.
-# Run this script again after every boot.
+# A script cannot guarantee compatibility forever.
+# Debian, Java and I2P configurations can change.
+# This script checks availability before applying changes.
 # ============================================================
 
 
 # ------------------------------------------------------------
-# Check root privileges
+# Require root privileges
 # ------------------------------------------------------------
 
 if [ "$EUID" -ne 0 ]; then
 
-    echo "ERROR: Please run this script as root."
-    echo "Use: sudo bash secure_debian_live_i2pd.sh"
+    echo "ERROR: Run this script as root"
+    echo "Example:"
+    echo "sudo bash secure_debian_live_i2p.sh"
 
     exit 1
 
 fi
 
 
-echo "[+] Starting Debian Live security configuration..."
+echo "[+] Starting Debian Live I2P security setup"
+
+
+# ------------------------------------------------------------
+# Detect Debian system
+# ------------------------------------------------------------
+
+if [ -f /etc/debian_version ]; then
+
+    echo "[+] Debian system detected"
+
+else
+
+    echo "ERROR: This script requires Debian"
+    exit 1
+
+fi
+
 
 
 # ------------------------------------------------------------
 # Update package database
 # ------------------------------------------------------------
 
-echo "[+] Updating package repositories..."
+echo "[+] Updating repositories"
 
 apt update
 
 
-# ------------------------------------------------------------
-# Install required security packages
-# ------------------------------------------------------------
-
-echo "[+] Installing security packages..."
-
-apt install -y \
-i2pd \
-ufw \
-apparmor \
-apparmor-utils \
-firejail \
-lynis \
-unattended-upgrades \
-apt-listchanges
-
 
 # ------------------------------------------------------------
-# Configure automatic security updates
+# Install required packages
+#
+# i2p:
+# Java I2P router + I2PSnark
+#
+# openjdk:
+# Java runtime required by I2P
+#
+# security tools:
+# firewall, sandbox, auditing
 # ------------------------------------------------------------
 
-echo "[+] Configuring unattended security updates..."
 
-dpkg-reconfigure -f noninteractive unattended-upgrades
+echo "[+] Installing packages"
+
+
+PACKAGES="
+i2p
+openjdk-17-jre
+ufw
+apparmor
+apparmor-utils
+firejail
+lynis
+curl
+wget
+ca-certificates
+"
+
+
+for PACKAGE in $PACKAGES
+do
+
+    if apt-cache show "$PACKAGE" >/dev/null 2>&1
+    then
+
+        apt install -y "$PACKAGE"
+
+    else
+
+        echo "[!] Package not available: $PACKAGE"
+
+    fi
+
+done
+
+
+
+# ------------------------------------------------------------
+# Create I2P download directory
+# ------------------------------------------------------------
+
+echo "[+] Creating download directory"
+
+
+REAL_USER=$(logname 2>/dev/null || echo root)
+
+
+if [ "$REAL_USER" != "root" ]; then
+
+    mkdir -p /home/$REAL_USER/I2P-Downloads
+
+    chown $REAL_USER:$REAL_USER /home/$REAL_USER/I2P-Downloads
+
+else
+
+    mkdir -p /root/I2P-Downloads
+
+fi
 
 
 
@@ -76,53 +144,68 @@ dpkg-reconfigure -f noninteractive unattended-upgrades
 # ============================================================
 
 
-echo "[+] Configuring UFW firewall..."
+echo "[+] Configuring firewall"
 
 
-# Block incoming connections by default
+# Default deny incoming traffic
+
 ufw default deny incoming
 
 
-# Block outgoing traffic by default
+# Default deny outgoing traffic
+
 ufw default deny outgoing
 
 
-# Allow DNS requests
+
+# Allow DNS
+
 ufw allow out 53
 
 
-# Allow HTTPS updates
+# Allow HTTPS package updates
+
 ufw allow out 443
 
 
-# Allow HTTP updates
+# Allow HTTP package updates
+
 ufw allow out 80
 
 
-# Allow I2P HTTP proxy
+
+# I2P local proxy
+
 ufw allow out 4444
 
 
-# Allow I2P router communication
-ufw allow out 4447
+
+# I2P router communication
+
+ufw allow out 7654
 
 
 # Enable firewall
+
 echo "y" | ufw enable
 
 
 
 # ============================================================
-# KERNEL SECURITY HARDENING
+# KERNEL HARDENING
 # ============================================================
 
 
-echo "[+] Applying kernel security settings..."
+echo "[+] Applying kernel security settings"
 
 
-cat >> /etc/sysctl.conf <<EOF
+SYSCTL_FILE="/etc/sysctl.conf"
 
-# Security hardening settings
+
+cat >> "$SYSCTL_FILE" <<EOF
+
+
+# Debian Live security settings
 
 kernel.kptr_restrict=2
 
@@ -132,20 +215,18 @@ kernel.randomize_va_space=2
 
 kernel.sysrq=0
 
+fs.suid_dumpable=0
+
 net.ipv4.conf.all.accept_redirects=0
 
 net.ipv4.conf.default.accept_redirects=0
 
 net.ipv4.conf.all.accept_source_route=0
 
-net.ipv4.icmp_echo_ignore_broadcasts=1
-
-fs.suid_dumpable=0
-
 EOF
 
 
-# Apply kernel settings
+
 sysctl -p
 
 
@@ -155,131 +236,33 @@ sysctl -p
 # ============================================================
 
 
-echo "[+] Starting AppArmor..."
-
-systemctl start apparmor || true
+echo "[+] Starting AppArmor"
 
 
-aa-status || true
+systemctl start apparmor 2>/dev/null || true
 
 
-
-# ============================================================
-# i2pd CONFIGURATION
-# ============================================================
-
-
-echo "[+] Configuring i2pd..."
-
-
-I2PD_CONFIG="/etc/i2pd/i2pd.conf"
-
-
-# Backup original configuration
-
-if [ -f "$I2PD_CONFIG" ]; then
-
-cp "$I2PD_CONFIG" "$I2PD_CONFIG.backup"
-
-fi
-
-
-
-cat > "$I2PD_CONFIG" <<EOF
-
-# Secure i2pd configuration
-
-# Disable IPv6
-ipv6=false
-
-
-# Limit bandwidth usage
-bandwidth=B
-
-
-# Do not participate as transit router
-notransit=true
-
-
-# Disable floodfill mode
-floodfill=false
-
-
-# Enable local HTTP proxy
-httpproxy.enabled=true
-
-
-# Listen only locally
-httpproxy.address=127.0.0.1
-
-
-# HTTP proxy port
-httpproxy.port=4444
-
-
-# Disable SOCKS proxy
-socksproxy.enabled=false
-
-
-EOF
+aa-status 2>/dev/null || true
 
 
 
 # ============================================================
-# START i2pd
+# FIREJAIL
 # ============================================================
 
 
-echo "[+] Starting i2pd service..."
+echo "[+] Preparing Firejail"
 
 
-systemctl restart i2pd || true
+firecfg 2>/dev/null || true
 
-
-systemctl status i2pd --no-pager || true
-
-
-
-# ============================================================
-# FIREJAIL CONFIGURATION
-# ============================================================
-
-
-echo "[+] Installing Firejail profiles..."
-
-
-firecfg || true
-
-
-
-# ============================================================
-# BASIC SECURITY CHECK
-# ============================================================
-
-
-echo "[+] Running security audit..."
-
-lynis audit system --quick || true
-
-
-
-# ============================================================
-# FINAL INFORMATION
-# ============================================================
 
 
 echo ""
 echo "=============================================="
-echo " Debian Live i2pd security setup completed"
-echo "=============================================="
-echo ""
-echo "I2P HTTP proxy:"
-echo "127.0.0.1:4444"
-echo ""
-echo "Remember:"
-echo "- Changes disappear after reboot without persistence"
-echo "- Use a separate browser profile for I2P"
-echo "- Avoid personal accounts"
-echo "- Do not open unknown files"
-echo ""
+echo " PART 1 COMPLETE"
+echo " Next:"
+echo " - Configure Java I2P"
+echo " - Configure I2PSnark"
+echo " - Configure Firefox I2P profile"
 echo "=============================================="
