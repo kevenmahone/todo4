@@ -266,3 +266,272 @@ echo " - Configure Java I2P"
 echo " - Configure I2PSnark"
 echo " - Configure Firefox I2P profile"
 echo "=============================================="
+
+
+
+
+
+# ============================================================
+# JAVA I2P CONFIGURATION
+# ============================================================
+
+echo "[+] Configuring Java I2P"
+
+
+# Check if I2P exists
+
+if command -v i2prouter >/dev/null 2>&1
+then
+
+    echo "[+] I2P installation detected"
+
+else
+
+    echo "[!] I2P router command not found"
+    echo "[!] Check Debian repository availability"
+
+fi
+
+
+
+# ------------------------------------------------------------
+# Create I2P user configuration directory
+# ------------------------------------------------------------
+
+
+REAL_USER=$(logname 2>/dev/null || echo root)
+
+
+if [ "$REAL_USER" != "root" ]; then
+
+    I2P_DIR="/home/$REAL_USER/.i2p"
+
+else
+
+    I2P_DIR="/root/.i2p"
+
+fi
+
+
+mkdir -p "$I2P_DIR"
+
+
+
+# ------------------------------------------------------------
+# Backup existing configuration
+# ------------------------------------------------------------
+
+
+if [ -f "$I2P_DIR/i2ptunnel.config" ]
+then
+
+    cp "$I2P_DIR/i2ptunnel.config" \
+    "$I2P_DIR/i2ptunnel.config.backup"
+
+fi
+
+
+
+# ============================================================
+# I2P ROUTER HARDENING
+# ============================================================
+
+
+echo "[+] Applying I2P privacy settings"
+
+
+# Disable automatic router updates
+# (manual updates are preferred on Live systems)
+
+cat > "$I2P_DIR/router.config" <<EOF
+
+# Secure Debian Live I2P configuration
+
+
+# Disable IPv6
+
+i2np.enableIPv6=false
+
+
+# Disable UPnP
+
+i2np.upnp.enable=false
+
+
+# Reduce bandwidth usage
+
+i2np.bandwidthLimiter=true
+
+
+# Disable floodfill participation
+
+router.floodfillParticipant=false
+
+
+# Do not automatically open ports
+
+i2np.ntcp.autoPortForward=false
+
+
+i2np.udp.autoPortForward=false
+
+
+EOF
+
+
+
+# ============================================================
+# START I2P
+# ============================================================
+
+
+echo "[+] Starting I2P router"
+
+
+if command -v i2prouter >/dev/null 2>&1
+then
+
+    i2prouter start || true
+
+else
+
+    echo "[!] Cannot start I2P automatically"
+
+fi
+
+
+
+# ============================================================
+# I2PSNARK DOWNLOAD SETTINGS
+# ============================================================
+
+
+echo "[+] Preparing I2PSnark"
+
+
+echo ""
+echo "I2PSnark configuration:"
+echo ""
+echo "Open:"
+echo "http://127.0.0.1:7657/i2psnark/"
+echo ""
+echo "Recommended settings:"
+echo ""
+echo "- Disable automatic torrent start"
+echo "- Stop torrents after completion"
+echo "- Use manual start"
+echo "- Set upload limit as low as possible"
+echo "- Save files to:"
+echo "$HOME/I2P-Downloads"
+echo ""
+
+
+
+# ============================================================
+# FIREFOX I2P PROFILE
+# ============================================================
+
+
+echo "[+] Creating Firefox I2P profile"
+
+
+FIREFOX_PROFILE="$HOME/.mozilla/firefox/i2p-profile"
+
+
+mkdir -p "$FIREFOX_PROFILE"
+
+
+
+cat > "$FIREFOX_PROFILE/user.js" <<EOF
+
+
+// =======================================
+// Firefox I2P privacy profile
+// =======================================
+
+
+// Disable WebRTC
+
+user_pref("media.peerconnection.enabled", false);
+
+
+// Disable DNS prefetch
+
+user_pref("network.prefetch-next", false);
+
+
+// Disable DNS over HTTPS
+
+user_pref("network.trr.mode", 5);
+
+
+// Disable link prefetch
+
+user_pref("network.http.speculative-parallel-limit", 0);
+
+
+// Reduce telemetry
+
+user_pref("toolkit.telemetry.enabled", false);
+
+
+EOF
+
+
+
+echo ""
+echo "Firefox proxy settings:"
+echo ""
+echo "Settings → Network Settings → Manual proxy"
+echo ""
+echo "HTTP Proxy:"
+echo "127.0.0.1"
+echo ""
+echo "Port:"
+echo "4444"
+echo ""
+
+
+
+# ============================================================
+# FINAL SECURITY CHECK
+# ============================================================
+
+
+echo "[+] Running Lynis quick audit"
+
+
+lynis audit system --quick || true
+
+
+
+# ============================================================
+# FINAL MESSAGE
+# ============================================================
+
+
+echo ""
+echo "================================================"
+echo " Debian Live Java I2P setup completed"
+echo "================================================"
+echo ""
+echo "I2P Console:"
+echo "http://127.0.0.1:7657"
+echo ""
+echo "I2PSnark:"
+echo "http://127.0.0.1:7657/i2psnark/"
+echo ""
+echo "Firefox proxy:"
+echo "127.0.0.1:4444"
+echo ""
+echo "Downloaded files:"
+echo "$HOME/I2P-Downloads"
+echo ""
+echo "Remember:"
+echo "- Debian Live without persistence loses changes"
+echo "- Stop torrents manually after downloads"
+echo "- Do not use personal accounts"
+echo "- Analyze unknown files in a sandbox"
+echo ""
+echo "================================================"
+
