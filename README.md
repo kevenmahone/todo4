@@ -1,4 +1,39 @@
 
+
+Ajouter la clé I2P
+Copie exactement :
+
+curl -fsSL https://geti2p.net/_static/i2p-debian-repo.key.asc | sudo gpg --dearmor -o /usr/share/keyrings/i2p-archive-keyring.gpg
+
+
+Vérifie :
+
+ls -l /usr/share/keyrings/i2p-archive-keyring.gpg
+
+3) Créer le dépôt I2P
+4) 
+Sur Debian 13.6, fais :
+echo "deb [signed-by=/usr/share/keyrings/i2p-archive-keyring.gpg] https://deb.i2p.net/ trixie main" | sudo tee /etc/apt/sources.list.d/i2p.list
+
+
+Vérifie :
+cat /etc/apt/sources.list.d/i2p.list
+Tu devrais voir :
+deb [signed-by=/usr/share/keyrings/i2p-archive-keyring.gpg] https://deb.i2p.net/ trixie main
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 cree un fichier
 
 nano secure_debian_live_i2p_verified.sh
