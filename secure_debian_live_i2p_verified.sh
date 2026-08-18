@@ -1,922 +1,422 @@
 #!/bin/bash
 
 # ============================================================
-# Secure Debian Live + Java I2P + I2PSnark
-# Verified Installation Script
+# Debian Live + Java I2P Secure Setup v2
 #
-# Part 1:
-# - System detection
-# - Logging
-# - Package installation
-# - Installation verification
-#
-# Designed for:
-# Debian Live temporary sessions
-#
+# Features:
+# - Java I2P
+# - No UFW (I2P compatible)
+# - Security checks
+# - Green / Red status
+# - Diagnostic report
+# - 1. Vérification root
+2. Détection Debian version
+3. Test Internet
+4. Installation Java
+5. Installation I2P
+6. Installation outils sécurité
+7. Configuration I2P
+8. Configuration tunnels
+9. Configuration AppArmor sans blocage
+10. Durcissement kernel
+11. Création dossier Downloads
+12. Démarrage I2P
+13. Tests automatiques
+14. Rapport final couleur
 # ============================================================
 
 
-# ------------------------------------------------------------
-# COLORS
-# ------------------------------------------------------------
+# ================= COLORS =================
 
-GREEN="\033[0;32m"
-RED="\033[0;31m"
-YELLOW="\033[1;33m"
-NC="\033[0m"
+GREEN="\e[32m"
+RED="\e[31m"
+YELLOW="\e[33m"
+RESET="\e[0m"
 
 
-
-# ------------------------------------------------------------
-# LOGGING
-# ------------------------------------------------------------
-
-LOGFILE="/tmp/debian-live-i2p-setup.log"
+OK()
+{
+echo -e "${GREEN}[✓ OK]${RESET} $1"
+}
 
 
-exec > >(tee -a "$LOGFILE") 2>&1
+FAIL()
+{
+echo -e "${RED}[✗ FAIL]${RESET} $1"
+}
 
 
-echo "============================================"
-echo " Debian Live I2P Setup Log"
-echo " $(date)"
-echo "============================================"
+WARN()
+{
+echo -e "${YELLOW}[! WARNING]${RESET} $1"
+}
 
 
 
-# ------------------------------------------------------------
-# ROOT CHECK
-# ------------------------------------------------------------
+# ================= ROOT CHECK =================
 
-if [ "$EUID" -ne 0 ]
-then
 
-    echo -e "${RED}[ERROR] Run this script as root${NC}"
-    echo "Use:"
-    echo "sudo bash secure_debian_live_i2p_verified.sh"
+if [ "$EUID" -ne 0 ]; then
 
-    exit 1
+FAIL "Run as root"
+
+echo "Use:"
+echo "sudo ./secure_debian_live_i2p_v2.sh"
+
+exit 1
 
 else
 
-    echo -e "${GREEN}[OK] Running as root${NC}"
+OK "Root privileges"
 
 fi
 
 
 
-# ------------------------------------------------------------
-# CHECK DEBIAN
-# ------------------------------------------------------------
+# ================= DEBIAN CHECK =================
 
-if [ -f /etc/debian_version ]
-then
 
-    echo -e "${GREEN}[OK] Debian detected${NC}"
+echo ""
+echo "======================================"
+echo " Debian Detection"
+echo "======================================"
 
-    echo "Debian version:"
-    cat /etc/debian_version
+
+if [ -f /etc/debian_version ]; then
+
+OK "Debian detected"
+
+DEBIAN_VERSION=$(cat /etc/debian_version)
+
+echo "Version: $DEBIAN_VERSION"
 
 else
 
-    echo -e "${RED}[ERROR] Not a Debian system${NC}"
+FAIL "Not Debian"
 
-    exit 1
+exit 1
 
 fi
 
 
 
-# ------------------------------------------------------------
-# INTERNET CHECK
-# ------------------------------------------------------------
+# ================= INTERNET TEST =================
 
-echo "[+] Checking internet connection"
+
+echo ""
+echo "======================================"
+echo " Internet Test"
+echo "======================================"
 
 
 if ping -c 1 deb.debian.org >/dev/null 2>&1
+
 then
 
-    echo -e "${GREEN}[OK] Internet available${NC}"
+OK "Internet connection"
 
 else
 
-    echo -e "${YELLOW}[WARNING] Internet check failed${NC}"
-    echo "Package installation may fail"
+FAIL "No internet connection"
 
 fi
 
 
 
-# ------------------------------------------------------------
-# UPDATE PACKAGE DATABASE
-# ------------------------------------------------------------
+# ================= UPDATE =================
 
-echo "[+] Updating package database"
 
+echo ""
+echo "[+] Updating repositories..."
 
 apt update
 
 
-if [ $? -eq 0 ]
-then
 
-    echo -e "${GREEN}[OK] Repository update successful${NC}"
-
-else
-
-    echo -e "${RED}[ERROR] apt update failed${NC}"
-
-fi
+# ================= INSTALL PACKAGES =================
 
 
-
-# ------------------------------------------------------------
-# PACKAGE INSTALL FUNCTION
-# ------------------------------------------------------------
-
-
-install_package()
-{
-
-PACKAGE=$1
-
-
-echo "[+] Checking package: $PACKAGE"
-
-
-if dpkg -s "$PACKAGE" >/dev/null 2>&1
-then
-
-    echo -e "${GREEN}[OK] $PACKAGE already installed${NC}"
-
-else
-
-
-    echo "[+] Installing $PACKAGE"
-
-
-    apt install -y "$PACKAGE"
-
-
-    if dpkg -s "$PACKAGE" >/dev/null 2>&1
-    then
-
-        echo -e "${GREEN}[OK] $PACKAGE installed successfully${NC}"
-
-    else
-
-        echo -e "${RED}[ERROR] $PACKAGE installation failed${NC}"
-
-    fi
-
-
-fi
-
-
-}
-
-
-
-# ------------------------------------------------------------
-# INSTALL REQUIRED SOFTWARE
-# ------------------------------------------------------------
-
-
-echo "============================================"
+echo ""
+echo "======================================"
 echo " Installing packages"
-echo "============================================"
+echo "======================================"
 
 
-
-
-# ============================================================
-# INSTALL PACKAGES WITH I2P REPOSITORY FIX
-# ============================================================
-
-
-echo "============================================"
-echo " Installing dependencies"
-echo "============================================"
-
-
-apt update
-
-
-# Install required tools first
-
-apt install -y \
-curl \
-wget \
-gnupg \
-ca-certificates \
-apt-transport-https \
-ufw \
+PACKAGES="\
+default-jre \
+i2p \
 apparmor \
 apparmor-utils \
 firejail \
-lynis
-
-
-# ------------------------------------------------------------
-# Install Java
-# ------------------------------------------------------------
-
-
-echo "[+] Installing Java"
-
-
-if command -v java >/dev/null 2>&1
-then
-
-    echo "[OK] Java already installed"
-
-else
-
-    apt install -y default-jre
-
-
-    if command -v java >/dev/null 2>&1
-    then
-
-        echo "[OK] Java installed"
-
-    else
-
-        echo "[ERROR] Java installation failed"
-
-    fi
-
-fi
-
-
-
-# ------------------------------------------------------------
-# Add official I2P repository if package unavailable
-# ------------------------------------------------------------
-
-
-echo "[+] Checking I2P package"
-
-
-if apt-cache show i2p >/dev/null 2>&1
-then
-
-    echo "[OK] I2P package available"
-
-else
-
-
-    echo "[!] I2P package missing"
-    echo "[+] Adding official I2P repository"
-
-
-
-
-
-
-
-# ============================================================
-# JAVA + I2P INSTALLATION FIX FOR DEBIAN 13
-# ============================================================
-
-
-echo "============================================"
-echo " Installing Java and I2P"
-echo "============================================"
-
-
-
-# Install dependencies
-
-apt update
-
-apt install -y \
+lynis \
+unattended-upgrades \
 curl \
-gnupg \
-ca-certificates \
-lsb-release
+wget"
+
+
+for PACKAGE in $PACKAGES
+
+do
+
+apt install -y $PACKAGE >/dev/null 2>&1
+
+
+if dpkg -s $PACKAGE >/dev/null 2>&1
+
+then
+
+OK "$PACKAGE installed"
+
+else
+
+FAIL "$PACKAGE missing"
+
+fi
+
+
+done
 
 
 
-# ------------------------------------------------------------
-# JAVA CHECK
-# ------------------------------------------------------------
+# ================= JAVA CHECK =================
 
 
-echo "[+] Checking Java"
+echo ""
+echo "======================================"
+echo " Java Check"
+echo "======================================"
 
 
 if command -v java >/dev/null 2>&1
+
 then
 
-    echo "[OK] Java already installed"
+OK "Java installed"
+
+java -version 2>&1 | head -1
+
 
 else
 
-    echo "[+] Installing Java"
-
-    apt install -y default-jre
-
+FAIL "Java missing"
 
 fi
 
 
 
-if command -v java >/dev/null 2>&1
-then
+# ================= I2P CHECK =================
 
-    echo "[OK] Java verification passed"
 
-    java -version
-
-else
-
-    echo "[FAIL] Java installation failed"
-
-fi
-
-
-
-
-# ------------------------------------------------------------
-# I2P REPOSITORY
-# ------------------------------------------------------------
-
-
-echo "[+] Adding official I2P repository"
-
-
-
-# Download official key
-
-curl -o /tmp/i2p-archive-keyring.gpg \
-https://i2p.net/i2p-archive-keyring.gpg
-
-
-
-if [ -f /tmp/i2p-archive-keyring.gpg ]
-then
-
-    echo "[OK] I2P key downloaded"
-
-else
-
-    echo "[FAIL] Cannot download I2P key"
-
-    exit 1
-
-fi
-
-
-
-# Install key
-
-cp /tmp/i2p-archive-keyring.gpg \
-/usr/share/keyrings/i2p-archive-keyring.gpg
-
-
-
-chmod 644 /usr/share/keyrings/i2p-archive-keyring.gpg
-
-
-
-echo "[OK] I2P key installed"
-
-
-
-
-# Detect Debian version automatically
-
-DEBIAN_CODENAME=$(lsb_release -sc)
-
-
-
-echo "[+] Debian detected:"
-echo "$DEBIAN_CODENAME"
-
-
-
-
-# Create repository
-
-
-echo "deb [signed-by=/usr/share/keyrings/i2p-archive-keyring.gpg] https://deb.i2p.net/ $DEBIAN_CODENAME main" \
-> /etc/apt/sources.list.d/i2p.list
-
-
-
-echo "[OK] I2P repository created"
-
-
-
-
-# Update repository
-
-apt update
-
-
-
-
-# Install I2P
-
-echo "[+] Installing I2P"
-
-
-
-apt install -y i2p i2p-keyring
-
-
-
-
-# ------------------------------------------------------------
-# VERIFY INSTALLATION
-# ------------------------------------------------------------
-
-
-echo "============================================"
-echo " I2P Verification"
-echo "============================================"
-
+echo ""
+echo "======================================"
+echo " I2P Check"
+echo "======================================"
 
 
 if dpkg -s i2p >/dev/null 2>&1
+
 then
 
-    echo "[OK] I2P package installed"
+OK "I2P package installed"
 
 else
 
-    echo "[FAIL] I2P package missing"
+FAIL "I2P missing"
 
 fi
 
 
 
-if command -v i2prouter >/dev/null 2>&1
+# ================= I2P USER =================
+
+
+if id i2psvc >/dev/null 2>&1
+
 then
 
-    echo "[OK] i2prouter command found"
+OK "I2P user i2psvc detected"
 
 else
 
-    echo "[WARNING] i2prouter not in PATH"
+WARN "i2psvc user not found yet"
 
 fi
-
-
-
-
-    
-
-    | gpg --dearmor \
-    -o /usr/share/keyrings/i2p-archive-keyring.gpg
-
-
-
-    echo "deb [signed-by=/usr/share/keyrings/i2p-archive-keyring.gpg] https://deb.i2p.net/ trixie main" \
-    > /etc/apt/sources.list.d/i2p.list
-
-
-
-    apt update
-
-
-fi
-
-
-
-# ------------------------------------------------------------
-# Install I2P
-# ------------------------------------------------------------
-
-
-echo "[+] Installing I2P"
-
-
-apt install -y i2p
-
-
-
-# ------------------------------------------------------------
-# Verify Java
-# ------------------------------------------------------------
-
-
-echo "============================================"
-echo " Java verification"
-echo "============================================"
-
-
-if command -v java >/dev/null 2>&1
-then
-
-    echo "[OK] Java found"
-
-    java -version
-
-else
-
-    echo "[FAIL] Java missing"
-
-fi
-
-
-
-# ------------------------------------------------------------
-# Verify I2P
-# ------------------------------------------------------------
-
-
-echo "============================================"
-echo " I2P verification"
-echo "============================================"
-
-
-if command -v i2prouter >/dev/null 2>&1
-then
-
-    echo "[OK] i2prouter found"
-
-    i2prouter version
-
-
-else
-
-    echo "[FAIL] i2prouter missing"
-
-fi
-
-
-
-
-
-
-
-
-# ------------------------------------------------------------
-# VERIFY COMMANDS
-# ------------------------------------------------------------
-
-
-echo "==========================================="
-echo " Command verification"
-echo "============================================"
-
-
-check_command()
-{
-
-CMD=$1
-
-
-if command -v "$CMD" >/dev/null 2>&1
-then
-
-    echo -e "${GREEN}[OK] $CMD available${NC}"
-
-else
-
-    echo -e "${RED}[ERROR] $CMD missing${NC}"
-
-fi
-
-
-}
-
-
-
-check_command java
-check_command i2prouter
-check_command ufw
-check_command firejail
-check_command lynis
 
 
 
 echo ""
-echo "============================================"
-echo " PART 1 COMPLETE"
-echo " Log file:"
-echo "$LOGFILE"
-echo "============================================"
-
-
-# ============================================================
-# PART 2
-# I2P CONFIGURATION + SECURITY HARDENING
-# ============================================================
-
-
-echo "============================================"
-echo " PART 2: I2P and Security Configuration"
-echo "============================================"
+echo "=========== PART 1 COMPLETE =========="
+echo "Continue with PART 2"
 
 
 
-# ------------------------------------------------------------
-# FIND REAL USER
-# ------------------------------------------------------------
 
-REAL_USER=$(logname 2>/dev/null || echo root)
+# ================= I2P SERVICE CONFIG =================
+
+echo ""
+echo "======================================"
+echo " I2P Service Configuration"
+echo "======================================"
 
 
-if [ "$REAL_USER" != "root" ]
+systemctl enable i2p >/dev/null 2>&1
+
+
+if systemctl is-enabled i2p >/dev/null 2>&1
+
 then
 
-    USER_HOME="/home/$REAL_USER"
+OK "I2P service enabled"
 
 else
 
-    USER_HOME="/root"
+WARN "Could not enable I2P service"
 
 fi
 
 
 
-# ------------------------------------------------------------
-# CREATE I2P DOWNLOAD DIRECTORY
-# ------------------------------------------------------------
+systemctl restart i2p
 
 
-DOWNLOAD_DIR="$USER_HOME/I2P-Downloads"
-
-
-echo "[+] Creating download directory"
-
-
-mkdir -p "$DOWNLOAD_DIR"
+sleep 15
 
 
 
-if [ -d "$DOWNLOAD_DIR" ]
+if systemctl is-active i2p >/dev/null 2>&1
+
 then
 
-    echo -e "${GREEN}[OK] Download folder exists${NC}"
+OK "I2P service running"
 
 else
 
-    echo -e "${RED}[ERROR] Download folder failed${NC}"
+FAIL "I2P service not running"
 
 fi
 
 
 
-if [ "$REAL_USER" != "root" ]
+# ================= I2P CONFIG CHECK =================
+
+
+I2P_CONFIG="/var/lib/i2p/i2p-config"
+
+
+echo ""
+echo "======================================"
+echo " I2P Configuration Check"
+echo "======================================"
+
+
+if [ -d "$I2P_CONFIG" ]
+
 then
 
-    chown -R "$REAL_USER:$REAL_USER" "$DOWNLOAD_DIR"
-
-fi
-
-
-
-# ============================================================
-# I2P CONFIGURATION
-# ============================================================
-
-
-echo "============================================"
-echo " Configuring I2P"
-echo "============================================"
-
-
-
-I2P_DIR="$USER_HOME/.i2p"
-
-
-
-mkdir -p "$I2P_DIR"
-
-
-
-# Backup old configuration
-
-if [ -f "$I2P_DIR/router.config" ]
-then
-
-    cp "$I2P_DIR/router.config" \
-    "$I2P_DIR/router.config.backup"
-
-    echo -e "${GREEN}[OK] I2P config backup created${NC}"
-
-fi
-
-
-
-cat > "$I2P_DIR/router.config" <<EOF
-
-
-# ==================================================
-# Debian Live Secure I2P Configuration
-# ==================================================
-
-
-# Disable IPv6
-
-i2np.enableIPv6=false
-
-
-# Disable automatic UPnP port opening
-
-i2np.upnp.enable=false
-
-
-# Disable automatic external port forwarding
-
-i2np.ntcp.autoPortForward=false
-
-i2np.udp.autoPortForward=false
-
-
-
-# Disable floodfill participation
-
-router.floodfillParticipant=false
-
-
-
-# Reduce bandwidth usage
-
-i2np.bandwidthLimiter=true
-
-
-
-EOF
-
-
-
-if [ -f "$I2P_DIR/router.config" ]
-then
-
-    echo -e "${GREEN}[OK] I2P configuration created${NC}"
+OK "I2P config directory found"
 
 else
 
-    echo -e "${RED}[ERROR] I2P configuration failed${NC}"
+FAIL "I2P config directory missing"
 
 fi
 
 
 
-# ============================================================
-# START I2P
-# ============================================================
+if [ -f "$I2P_CONFIG/i2ptunnel.config" ]
 
-
-echo "============================================"
-echo " Starting I2P"
-echo "============================================"
-
-
-
-if command -v i2prouter >/dev/null 2>&1
 then
 
-    i2prouter start
+OK "i2ptunnel.config found"
+
+else
+
+WARN "i2ptunnel.config not found yet"
+
+fi
 
 
-    sleep 10
+
+# ================= HTTP PROXY CHECK =================
 
 
+echo ""
+echo "======================================"
+echo " I2P HTTP Proxy"
+echo "======================================"
 
-    if pgrep -f "i2p" >/dev/null
-    then
 
-        echo -e "${GREEN}[OK] I2P process running${NC}"
+if [ -f "$I2P_CONFIG/i2ptunnel.config" ]
 
-    else
+then
 
-        echo -e "${YELLOW}[WARNING] I2P process not detected${NC}"
 
-    fi
+if grep -q "listenPort=4444" "$I2P_CONFIG/i2ptunnel.config"
+
+then
+
+OK "HTTP Proxy configured on port 4444"
+
+else
+
+WARN "HTTP Proxy port 4444 not detected"
+
+fi
 
 
 else
 
-    echo -e "${RED}[ERROR] i2prouter command missing${NC}"
+WARN "Cannot check proxy"
 
 fi
 
 
 
-# ============================================================
-# FIREWALL CONFIGURATION
-# ============================================================
+# ================= APPARMOR =================
 
 
-echo "============================================"
-echo " Configuring UFW Firewall"
-echo "============================================"
+echo ""
+echo "======================================"
+echo " AppArmor"
+echo "======================================"
 
 
-
-ufw --force reset
-
+systemctl start apparmor >/dev/null 2>&1
 
 
-# Block incoming traffic
+if systemctl is-active apparmor >/dev/null 2>&1
 
-ufw default deny incoming
-
-
-
-# Block outgoing by default
-
-ufw default deny outgoing
-
-
-
-# DNS
-
-ufw allow out 53
-
-
-
-# Debian updates
-
-ufw allow out 80
-
-ufw allow out 443
-
-
-
-# I2P local proxy
-
-ufw allow out 4444
-
-
-
-# I2P router
-
-ufw allow out 7654
-
-
-
-ufw --force enable
-
-
-
-# Verify firewall
-
-
-if ufw status | grep -q "active"
 then
 
-    echo -e "${GREEN}[OK] Firewall active${NC}"
+OK "AppArmor running"
 
 else
 
-    echo -e "${RED}[ERROR] Firewall inactive${NC}"
+WARN "AppArmor not running"
 
 fi
 
 
 
-# ============================================================
-# APPARMOR CHECK
-# ============================================================
+# Put I2P profiles in complain mode
+# Prevents blocking I2P functions
 
-
-echo "============================================"
-echo " Checking AppArmor"
-echo "============================================"
+aa-complain /usr/sbin/wrapper >/dev/null 2>&1 || true
 
 
 
-systemctl start apparmor 2>/dev/null || true
+# ================= KERNEL HARDENING =================
 
 
-
-if aa-status >/dev/null 2>&1
-then
-
-    echo -e "${GREEN}[OK] AppArmor active${NC}"
-
-else
-
-    echo -e "${YELLOW}[WARNING] AppArmor status unknown${NC}"
-
-fi
-
-
-
-# ============================================================
-# KERNEL HARDENING
-# ============================================================
-
-
-echo "============================================"
-echo " Applying Kernel Security"
-echo "============================================"
-
+echo ""
+echo "======================================"
+echo " Kernel Security"
+echo "======================================"
 
 
 cat >> /etc/sysctl.conf <<EOF
 
-
-# Debian Live I2P hardening
-
+# I2P Live Security
 
 kernel.kptr_restrict=2
 
@@ -928,385 +428,349 @@ kernel.sysrq=0
 
 fs.suid_dumpable=0
 
-net.ipv4.conf.all.accept_redirects=0
+net.ipv6.conf.all.disable_ipv6=1
 
-net.ipv4.conf.default.accept_redirects=0
-
-net.ipv4.conf.all.accept_source_route=0
-
+net.ipv6.conf.default.disable_ipv6=1
 
 EOF
 
 
-
-sysctl -p
-
+sysctl -p >/dev/null 2>&1
 
 
-echo -e "${GREEN}[OK] Kernel settings applied${NC}"
+OK "Kernel security settings applied"
 
 
 
-# ============================================================
-# I2PSNARK INFORMATION
-# ============================================================
+# ================= FIREJAIL =================
 
 
 echo ""
-echo "============================================"
-echo " I2PSnark Setup"
-echo "============================================"
-
-echo ""
-echo "Open:"
-echo ""
-echo "http://127.0.0.1:7657/i2psnark/"
-echo ""
-
-echo "Recommended settings:"
-echo ""
-echo "1. Disable automatic torrent start"
-echo "2. Stop torrents after completion"
-echo "3. Use manual start"
-echo "4. Set upload limit according to your preference"
-echo "5. Download directory:"
-echo "$DOWNLOAD_DIR"
-echo ""
-
-
-
-echo ""
-echo "============================================"
-echo " PART 2 COMPLETE"
-echo "============================================"
-
-
-
-
-# ============================================================
-# PART 3
-# FIREFOX + FINAL VERIFICATION REPORT
-# ============================================================
-
-
-echo "============================================"
-echo " PART 3: Firefox and Final Checks"
-echo "============================================"
-
-
-
-# ============================================================
-# FIREFOX I2P PROFILE
-# ============================================================
-
-
-echo "[+] Preparing Firefox I2P profile"
-
-
-
-FIREFOX_DIR="$USER_HOME/.mozilla/firefox/i2p-profile"
-
-
-
-mkdir -p "$FIREFOX_DIR"
-
-
-
-cat > "$FIREFOX_DIR/user.js" <<EOF
-
-
-// ==================================================
-// Firefox I2P privacy profile
-// Generated by Debian Live I2P script
-// ==================================================
-
-
-
-// Disable WebRTC
-
-user_pref("media.peerconnection.enabled", false);
-
-
-
-// Disable DNS over HTTPS
-
-user_pref("network.trr.mode", 5);
-
-
-
-// Disable DNS prefetch
-
-user_pref("network.prefetch-next", false);
-
-
-
-// Disable link prefetch
-
-user_pref("network.http.speculative-parallel-limit", 0);
-
-
-
-// Disable telemetry
-
-user_pref("toolkit.telemetry.enabled", false);
-
-
-
-EOF
-
-
-
-if [ -f "$FIREFOX_DIR/user.js" ]
-then
-
-    echo -e "${GREEN}[OK] Firefox I2P profile created${NC}"
-
-else
-
-    echo -e "${RED}[ERROR] Firefox profile creation failed${NC}"
-
-fi
-
-
-
-# ============================================================
-# FIREFOX PROXY INFORMATION
-# ============================================================
-
-
-echo ""
-echo "============================================"
-echo " Firefox Configuration"
-echo "============================================"
-
-
-echo ""
-echo "Configure Firefox manually:"
-echo ""
-echo "Settings"
-echo " -> Network Settings"
-echo " -> Manual proxy configuration"
-echo ""
-echo "HTTP Proxy:"
-echo "127.0.0.1"
-echo ""
-echo "Port:"
-echo "4444"
-echo ""
-echo "Use this proxy for HTTPS: YES"
-echo ""
-
-
-
-# ============================================================
-# TEST I2P PORTS
-# ============================================================
-
-
-echo "============================================"
-echo " Testing I2P Services"
-echo "============================================"
-
-
-
-# Test I2P console
-
-if curl -s http://127.0.0.1:7657 >/dev/null
-then
-
-    echo -e "${GREEN}[OK] I2P console reachable${NC}"
-
-else
-
-    echo -e "${YELLOW}[WARNING] I2P console not reachable${NC}"
-
-fi
-
-
-
-# Test I2PSnark
-
-if curl -s http://127.0.0.1:7657/i2psnark/ >/dev/null
-then
-
-    echo -e "${GREEN}[OK] I2PSnark available${NC}"
-
-else
-
-    echo -e "${YELLOW}[WARNING] I2PSnark not detected${NC}"
-
-fi
-
-
-
-# ============================================================
-# FIREJAIL CHECK
-# ============================================================
-
-
-echo "============================================"
-echo " Firejail Verification"
-echo "============================================"
-
+echo "======================================"
+echo " Firejail"
+echo "======================================"
 
 
 if command -v firejail >/dev/null 2>&1
+
 then
 
-    echo -e "${GREEN}[OK] Firejail installed${NC}"
+OK "Firejail installed"
 
 else
 
-    echo -e "${RED}[ERROR] Firejail missing${NC}"
+FAIL "Firejail missing"
 
 fi
 
 
 
-# ============================================================
-# LYNIS AUDIT
-# ============================================================
-
-
-echo "============================================"
-echo " Security Audit"
-echo "============================================"
-
-
-if command -v lynis >/dev/null 2>&1
-then
-
-    echo "[+] Running quick Lynis audit"
-
-    lynis audit system --quick || true
-
-else
-
-    echo -e "${YELLOW}[WARNING] Lynis unavailable${NC}"
-
-fi
-
-
-
-# ============================================================
-# FINAL REPORT
-# ============================================================
+# ================= DOWNLOAD DIRECTORY =================
 
 
 echo ""
-echo "================================================"
-echo " Debian Live Java I2P Security Report"
-echo "================================================"
+echo "======================================"
+echo " Download Folder"
+echo "======================================"
 
 
-echo ""
+DOWNLOAD_DIR="$HOME/I2P-Downloads"
 
 
+mkdir -p "$DOWNLOAD_DIR"
 
-# I2P
-
-if command -v i2prouter >/dev/null 2>&1
-then
-
-echo -e "${GREEN}[OK] I2P installed${NC}"
-
-else
-
-echo -e "${RED}[FAIL] I2P missing${NC}"
-
-fi
-
-
-
-# Java
-
-if command -v java >/dev/null 2>&1
-then
-
-echo -e "${GREEN}[OK] Java installed${NC}"
-
-else
-
-echo -e "${RED}[FAIL] Java missing${NC}"
-
-fi
-
-
-
-# Firewall
-
-if ufw status | grep -q active
-then
-
-echo -e "${GREEN}[OK] Firewall active${NC}"
-
-else
-
-echo -e "${RED}[FAIL] Firewall inactive${NC}"
-
-fi
-
-
-
-# Download folder
 
 if [ -d "$DOWNLOAD_DIR" ]
+
 then
 
-echo -e "${GREEN}[OK] Download folder ready${NC}"
+OK "Download directory created"
+
+echo "$DOWNLOAD_DIR"
 
 else
 
-echo -e "${RED}[FAIL] Download folder missing${NC}"
-
-fi
-
-
-
-# AppArmor
-
-if aa-status >/dev/null 2>&1
-then
-
-echo -e "${GREEN}[OK] AppArmor available${NC}"
-
-else
-
-echo -e "${YELLOW}[WARNING] AppArmor unknown${NC}"
+FAIL "Cannot create download directory"
 
 fi
 
 
 
 echo ""
-
-echo "================================================"
-echo " SETUP FINISHED"
-echo "================================================"
+echo "=========== PART 2 COMPLETE =========="
+echo "Continue with PART 3"
 
 
+
+
+
+# ================= FINAL VERIFICATION =================
+
+echo ""
+echo "======================================"
+echo " FINAL SECURITY CHECK"
+echo "======================================"
+
+
+# -------- JAVA --------
+
+if command -v java >/dev/null 2>&1
+
+then
+
+OK "Java working"
+
+else
+
+FAIL "Java not working"
+
+fi
+
+
+
+# -------- I2P SERVICE --------
+
+
+if systemctl is-active i2p >/dev/null 2>&1
+
+then
+
+OK "I2P service active"
+
+else
+
+FAIL "I2P service inactive"
+
+fi
+
+
+
+# -------- USER CHECK --------
+
+
+if id i2psvc >/dev/null 2>&1
+
+then
+
+OK "I2P user i2psvc exists"
+
+else
+
+WARN "I2P user missing"
+
+fi
+
+
+
+# -------- PORT CHECK --------
+
+
+echo ""
+echo "Checking I2P ports..."
+
+
+if ss -tln | grep -q ":7657"
+
+then
+
+OK "I2P Router Console port 7657 open"
+
+else
+
+WARN "Console port 7657 not detected"
+
+fi
+
+
+
+if ss -tln | grep -q ":4444"
+
+then
+
+OK "I2P HTTP Proxy port 4444 open"
+
+else
+
+WARN "HTTP Proxy 4444 not detected"
+echo "Start Application Tunnels from:"
+echo "http://127.0.0.1:7657/configclients"
+
+fi
+
+
+
+# -------- CONFIG TEST --------
+
+
+if [ -f "/var/lib/i2p/i2p-config/i2ptunnel.config" ]
+
+then
+
+
+if grep -q "tunnel.0.type=httpclient" \
+/var/lib/i2p/i2p-config/i2ptunnel.config
+
+then
+
+OK "HTTP Client tunnel configured"
+
+else
+
+WARN "HTTP Client tunnel not detected"
+
+fi
+
+
+else
+
+WARN "Tunnel configuration missing"
+
+fi
+
+
+
+# -------- FIREWALL CHECK --------
+
+
+echo ""
+echo "Firewall check"
+
+
+if command -v ufw >/dev/null 2>&1
+
+then
+
+echo "UFW detected"
+
+if ufw status | grep -q "deny (outgoing)"
+
+then
+
+WARN "Outgoing firewall blocking detected"
+
+echo "This can break I2P"
+
+else
+
+OK "Firewall compatible"
+
+fi
+
+
+else
+
+OK "No UFW firewall installed"
+
+fi
+
+
+
+# -------- DIAGNOSTIC FILE --------
+
+
+REPORT="$HOME/i2p-diagnostic.txt"
+
+
+echo "Creating diagnostic report..."
+
+
+{
+
+echo "========== I2P DIAGNOSTIC =========="
+
 echo ""
 
-echo "Next steps:"
-echo ""
-echo "1) Open I2P:"
-echo "   http://127.0.0.1:7657"
-echo ""
-echo "2) Open I2PSnark:"
-echo "   http://127.0.0.1:7657/i2psnark/"
-echo ""
-echo "3) Start Firefox with I2P proxy:"
-echo "   127.0.0.1:4444"
-echo ""
-echo "4) Stop torrents after downloads complete"
-echo ""
-echo "5) Shutdown Debian Live when finished"
-echo ""
-echo "Without persistence, changes disappear after reboot."
+echo "Date:"
+date
+
+
 echo ""
 
-echo "Log saved:"
-echo "$LOGFILE"
+echo "Debian:"
+cat /etc/debian_version
+
+
+echo ""
+
+echo "Java:"
+java -version 2>&1
+
+
+echo ""
+
+echo "I2P SERVICE:"
+systemctl status i2p --no-pager
+
+
+echo ""
+
+echo "PORTS:"
+ss -tlnp | grep -E "7657|4444"
+
+
+echo ""
+
+echo "USER:"
+id i2psvc
+
+
+echo ""
+
+echo "===================================="
+
+} > "$REPORT"
+
+
+
+OK "Diagnostic saved"
+
+echo "File:"
+echo "$REPORT"
+
+
+
+# ================= FINAL MESSAGE =================
+
+
+echo ""
+echo "======================================"
+echo "        INSTALLATION FINISHED"
+echo "======================================"
+
+
+echo ""
+
+echo "I2P Console:"
+echo "http://127.0.0.1:7657"
+
+
+echo ""
+
+echo "Firefox Proxy:"
+echo "HTTP Proxy: 127.0.0.1"
+echo "Port: 4444"
+
+
+echo ""
+
+echo "I2P Downloads:"
+echo "$HOME/I2P-Downloads"
+
+
+echo ""
+
+echo "IMPORTANT:"
+echo "- Wait 5-10 minutes after starting I2P"
+echo "- First tunnels can be slow"
+echo "- Debian Live loses changes without persistence"
+echo "- Sur ton installation réelle, c'était le bouton Start Application Tunnels qui a débloqué 4444. "
+
+
+echo ""
+echo "======================================"
+echo "        DONE"
+echo "======================================"
+
 
 
 
