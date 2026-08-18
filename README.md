@@ -71,22 +71,6 @@ Click OK.
 
 
 
-in about config
-
-
-Recommended Firefox privacy settings
-In the I2P Firefox profile, open:
-about:config
-Set:
-media.peerconnection.enabled = false
-(disables WebRTC)
-
-network.trr.mode = 5
-(disables Firefox DNS-over-HTTPS)
-
-network.prefetch-next = false
-(disables prefetching)
-
 
 
 
@@ -104,4 +88,15 @@ http://example.i2p
 
 or use the I2P address book/search from the I2P console.
 
+
+
+
+
+if is not working be sure in 
+http://127.0.0.1:7657/configclients
+
+
+be sure everything is started in section control
+
+application tunel need to be started !
 
