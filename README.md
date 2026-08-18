@@ -1,20 +1,20 @@
 cree un fichier
 
-nano secure_debian_live_i2p.sh
+nano secure_debian_live_i2p_verified.sh
 
 
-et colle le script que jai partager dans ce repo todo4 named secure_debian_live_i2p.sh
+et colle le script que jai partager dans ce repo todo4 named secure_debian_live_i2p_verified.sh
 
 sauvegarde le script
 
 
 pour l'exécuter :
-chmod +x secure_debian_live_i2p.sh
+chmod +x secure_debian_live_i2p_verified.sh
 
 
 
 Puis :
-sudo ./secure_debian_live_i2p.sh
+sudo ./secure_debian_live_i2p_verified.sh
 
 
 
