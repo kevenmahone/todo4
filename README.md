@@ -1,4 +1,4 @@
-
+sudo grep -E "tunnel.0.name|tunnel.0.type|tunnel.0.listenPort|tunnel.0.startOnLoad" /var/lib/i2p/i2p-config/i2ptunnel.config
 
 
 
