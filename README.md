@@ -1,4 +1,4 @@
-crer un fichier
+cree un fichier
 
 nano secure_debian_live_i2p.sh
 
@@ -43,5 +43,59 @@ download to:
 
 
 
+
+whem is done in firefox go in setting
+
+manual proxy configuration
+
+
+HTTP Proxy:
+127.0.0.1
+
+Port:
+4444
+Enable:
+[x] Use this proxy for HTTPS
+
+
+Leave these empty:
+SOCKS Host:
+SOCKS Port:
+Click OK.
+
+
+
+in about config
+
+
+Recommended Firefox privacy settings
+In the I2P Firefox profile, open:
+about:config
+Set:
+media.peerconnection.enabled = false
+(disables WebRTC)
+
+network.trr.mode = 5
+(disables Firefox DNS-over-HTTPS)
+
+network.prefetch-next = false
+(disables prefetching)
+
+
+
+
+
+after
+
+
+First verify I2P is running:
+Open:
+http://127.0.0.1:7657
+
+Then try an I2P address:
+http://example.i2p
+
+
+or use the I2P address book/search from the I2P console.
 
 
