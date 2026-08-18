@@ -188,29 +188,173 @@ echo " Installing packages"
 echo "============================================"
 
 
-PACKAGES=(
 
-i2p
-openjdk-17-jre
-ufw
-apparmor
-apparmor-utils
-firejail
+
+# ============================================================
+# INSTALL PACKAGES WITH I2P REPOSITORY FIX
+# ============================================================
+
+
+echo "============================================"
+echo " Installing dependencies"
+echo "============================================"
+
+
+apt update
+
+
+# Install required tools first
+
+apt install -y \
+curl \
+wget \
+gnupg \
+ca-certificates \
+apt-transport-https \
+ufw \
+apparmor \
+apparmor-utils \
+firejail \
 lynis
-curl
-wget
-ca-certificates
-
-)
 
 
+# ------------------------------------------------------------
+# Install Java
+# ------------------------------------------------------------
 
-for PACKAGE in "${PACKAGES[@]}"
-do
 
-    install_package "$PACKAGE"
+echo "[+] Installing Java"
 
-done
+
+if command -v java >/dev/null 2>&1
+then
+
+    echo "[OK] Java already installed"
+
+else
+
+    apt install -y default-jre
+
+
+    if command -v java >/dev/null 2>&1
+    then
+
+        echo "[OK] Java installed"
+
+    else
+
+        echo "[ERROR] Java installation failed"
+
+    fi
+
+fi
+
+
+
+# ------------------------------------------------------------
+# Add official I2P repository if package unavailable
+# ------------------------------------------------------------
+
+
+echo "[+] Checking I2P package"
+
+
+if apt-cache show i2p >/dev/null 2>&1
+then
+
+    echo "[OK] I2P package available"
+
+else
+
+
+    echo "[!] I2P package missing"
+    echo "[+] Adding official I2P repository"
+
+
+    curl -fsSL \
+    https://geti2p.net/_static/i2p-debian-repo.key.asc \
+    | gpg --dearmor \
+    -o /usr/share/keyrings/i2p-archive-keyring.gpg
+
+
+
+    echo "deb [signed-by=/usr/share/keyrings/i2p-archive-keyring.gpg] https://deb.i2p.net/ trixie main" \
+    > /etc/apt/sources.list.d/i2p.list
+
+
+
+    apt update
+
+
+fi
+
+
+
+# ------------------------------------------------------------
+# Install I2P
+# ------------------------------------------------------------
+
+
+echo "[+] Installing I2P"
+
+
+apt install -y i2p
+
+
+
+# ------------------------------------------------------------
+# Verify Java
+# ------------------------------------------------------------
+
+
+echo "============================================"
+echo " Java verification"
+echo "============================================"
+
+
+if command -v java >/dev/null 2>&1
+then
+
+    echo "[OK] Java found"
+
+    java -version
+
+else
+
+    echo "[FAIL] Java missing"
+
+fi
+
+
+
+# ------------------------------------------------------------
+# Verify I2P
+# ------------------------------------------------------------
+
+
+echo "============================================"
+echo " I2P verification"
+echo "============================================"
+
+
+if command -v i2prouter >/dev/null 2>&1
+then
+
+    echo "[OK] i2prouter found"
+
+    i2prouter version
+
+
+else
+
+    echo "[FAIL] i2prouter missing"
+
+fi
+
+
+
+
+
 
 
 
@@ -219,7 +363,7 @@ done
 # ------------------------------------------------------------
 
 
-echo "============================================"
+echo "==========================================="
 echo " Command verification"
 echo "============================================"
 
