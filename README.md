@@ -29,6 +29,11 @@ sudo ./secure_debian13_i2p_i2psnark_hardened_v2.sh
 After it finishes:
 
 
+find in debian application firefox i2p or firefox i2p secure
+
+start this firefox
+and
+
 Open these link in the firefox i2p :
 http://127.0.0.1:7657
 
