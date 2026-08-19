@@ -92,7 +92,7 @@ if [ "${VERSION_CODENAME:-}" != "trixie" ]; then
     exit 1
 fi
 
-echo -e "${GREEN}[OK] Debian 13 Trixie detected${NC}"
+echo -e "${GREEN}[OK] Live Debian 13 Trixie detected${NC}"
 
 # ------------------------------------------------------------
 # ARCHITECTURE
