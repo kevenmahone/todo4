@@ -1,11 +1,11 @@
 
-we have 2 script one we dont use and the other we use
+we have 3 script one we dont use and the other we use
 
 we will use this one
 secure_debian13_i2p_i2psnark_hardened_v2.sh
 
 
-
+be sure is the v2 version you use
 
 
 
