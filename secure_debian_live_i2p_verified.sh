@@ -1,9 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# Secure Debian 13 Trixie the live debian + Java I2P + I2PSnark
-#
-# Based on original user-provided script.
+# Secure Debian 13 Trixie Live Debian + Java I2P + I2PSnark
 #
 # Includes:
 # - Debian 13 detection
@@ -92,7 +90,7 @@ if [ "${VERSION_CODENAME:-}" != "trixie" ]; then
     exit 1
 fi
 
-echo -e "${GREEN}[OK] Live Debian 13 Trixie detected${NC}"
+echo -e "${GREEN}[OK] Debian 13 Trixie detected${NC}"
 
 # ------------------------------------------------------------
 # ARCHITECTURE
@@ -103,7 +101,7 @@ ARCH="$(dpkg --print-architecture)"
 echo "Architecture: $ARCH"
 
 case "$ARCH" in
-    amd64|arm64|armhf|i386|ppc64el|s390x)
+    amd64|arm64|armhf|i386|ppc64el|riscv64|s390x)
         echo -e "${GREEN}[OK] Supported architecture${NC}"
         ;;
     *)
@@ -152,7 +150,6 @@ DEPS=(
     wget
     gnupg
     ca-certificates
-    apt-transport-https
     lsb-release
     apparmor
     apparmor-utils
@@ -237,14 +234,18 @@ echo " Java"
 echo "============================================"
 
 if command -v java >/dev/null 2>&1; then
+
     echo -e "${GREEN}[OK] Java already installed${NC}"
+
 else
+
     echo "[+] Installing default JRE"
 
     if ! apt-get install -y default-jre; then
         echo -e "${RED}[ERROR] Java installation failed.${NC}"
         exit 1
     fi
+
 fi
 
 echo
@@ -283,11 +284,14 @@ if ! curl -fsSL \
 
     echo -e "${RED}[ERROR] Failed to download I2P signing key.${NC}"
     exit 1
+
 fi
 
 if [ ! -s "$I2P_TEMP_KEY" ]; then
+
     echo -e "${RED}[ERROR] Downloaded I2P key is empty.${NC}"
     exit 1
+
 fi
 
 echo -e "${GREEN}[OK] I2P signing key downloaded${NC}"
@@ -312,8 +316,10 @@ FINGERPRINT="$(
 )"
 
 if [ -z "$FINGERPRINT" ]; then
+
     echo -e "${RED}[ERROR] Could not read I2P signing-key fingerprint.${NC}"
     exit 1
+
 fi
 
 echo "Detected fingerprint:"
@@ -367,8 +373,10 @@ echo " Updating package database with I2P"
 echo "============================================"
 
 if ! apt-get update; then
+
     echo -e "${RED}[ERROR] apt-get update failed after adding I2P repository.${NC}"
     exit 1
+
 fi
 
 # ------------------------------------------------------------
@@ -380,8 +388,10 @@ echo " Installing I2P"
 echo "============================================"
 
 if ! apt-get install -y i2p i2p-keyring; then
+
     echo -e "${RED}[ERROR] I2P installation failed.${NC}"
     exit 1
+
 fi
 
 echo -e "${GREEN}[OK] I2P installed${NC}"
@@ -484,16 +494,20 @@ echo "============================================"
 echo " I2P service configuration"
 echo "============================================"
 
-# Configure the package for daemon/service operation.
 if command -v debconf-set-selections >/dev/null 2>&1; then
-    echo "i2p i2p/daemon boolean true" | debconf-set-selections
+
+    echo "i2p i2p/daemon boolean true" |
+        debconf-set-selections
+
 fi
 
 echo "[+] Reconfiguring I2P daemon"
 
 if ! dpkg-reconfigure -f noninteractive i2p; then
+
     echo -e "${RED}[ERROR] I2P daemon configuration failed.${NC}"
     exit 1
+
 fi
 
 systemctl daemon-reload
@@ -501,8 +515,10 @@ systemctl daemon-reload
 echo "[+] Enabling I2P service"
 
 if ! systemctl enable i2p; then
+
     echo -e "${RED}[ERROR] Failed to enable I2P service.${NC}"
     exit 1
+
 fi
 
 echo "[+] Starting I2P service"
@@ -628,9 +644,13 @@ EOF
 chmod 0644 "$SYSCTL_FILE"
 
 if sysctl --system >/dev/null 2>&1; then
+
     echo -e "${GREEN}[OK] Kernel settings applied${NC}"
+
 else
+
     echo -e "${YELLOW}[WARNING] Some kernel settings could not be applied.${NC}"
+
 fi
 
 # ------------------------------------------------------------
@@ -643,7 +663,7 @@ echo "============================================"
 
 I2P_CONSOLE_READY=0
 
-for attempt in $(seq 1 30); do
+for attempt in $(seq 1 60); do
 
     if curl -fsS \
         --max-time 5 \
@@ -655,7 +675,7 @@ for attempt in $(seq 1 30); do
 
     fi
 
-    echo "[+] Waiting for I2P router console... $attempt/30"
+    echo "[+] Waiting for I2P router console... $attempt/60"
     sleep 2
 
 done
@@ -687,35 +707,54 @@ echo "============================================"
 
 I2P_PROXY_READY=0
 
-for attempt in $(seq 1 60); do
+for attempt in $(seq 1 90); do
 
-    if ss -lnt 2>/dev/null |
-        grep -Eq \
-        '127\.0\.0\.1:4444|0\.0\.0\.0:4444|\[::1\]:4444|\[::\]:4444'; then
+    if ss -lntH 2>/dev/null |
+        awk '$4 ~ /(^|:)4444$/ {found=1} END {exit !found}'; then
 
         I2P_PROXY_READY=1
         break
 
     fi
 
-    echo "[+] Waiting for I2P HTTP proxy... $attempt/60"
+    if curl -fsS \
+        --max-time 5 \
+        http://127.0.0.1:7657/i2ptunnel/ \
+        >/dev/null 2>&1; then
+
+        echo "[+] I2P tunnel manager is responding, but proxy 4444 is not ready yet."
+
+    fi
+
+    echo "[+] Waiting for I2P HTTP proxy on port 4444... $attempt/90"
     sleep 2
 
 done
 
 if [ "$I2P_PROXY_READY" -eq 1 ]; then
 
-    echo -e "${GREEN}[OK] I2P HTTP proxy listening on 127.0.0.1:4444${NC}"
+    echo -e "${GREEN}[OK] I2P HTTP proxy is listening on port 4444${NC}"
 
 else
 
-    echo -e "${RED}[ERROR] I2P HTTP proxy is NOT listening on port 4444.${NC}"
+    echo -e "${YELLOW}[WARNING] I2P HTTP proxy is not listening on port 4444 yet.${NC}"
 
     echo
-    echo "Check the I2P tunnel configuration:"
+    echo "The I2P router itself is running, but the HTTP proxy"
+    echo "could not be detected automatically."
+    echo
+    echo "Router console:"
+    echo "http://127.0.0.1:7657/"
+    echo
+    echo "I2P Tunnel Manager:"
     echo "http://127.0.0.1:7657/i2ptunnel/"
-
-    exit 1
+    echo
+    echo "Current listening ports:"
+    ss -lntp 2>/dev/null |
+        grep -E ':(4444|4445|7657)\b' || true
+    echo
+    echo "Continuing setup instead of aborting."
+    echo "The I2P router may still be starting its tunnels."
 
 fi
 
@@ -727,16 +766,15 @@ echo "============================================"
 echo " Checking I2P HTTPS proxy"
 echo "============================================"
 
-if ss -lnt 2>/dev/null |
-   grep -Eq \
-   '127\.0\.0\.1:4445|0\.0\.0\.0:4445|\[::1\]:4445|\[::\]:4445'; then
+if ss -lntH 2>/dev/null |
+   awk '$4 ~ /(^|:)4445$/ {found=1} END {exit !found}'; then
 
     echo -e "${GREEN}[OK] I2P HTTPS proxy listening on port 4445${NC}"
 
 else
 
     echo -e "${YELLOW}[WARNING] I2P HTTPS proxy is not listening on 4445.${NC}"
-    echo "HTTP .i2p browsing through port 4444 is still available."
+    echo "HTTP .i2p browsing through port 4444 may still be available."
 
 fi
 
@@ -1092,9 +1130,8 @@ else
 
 fi
 
-if ss -lnt 2>/dev/null |
-   grep -Eq \
-   '127\.0\.0\.1:7657|0\.0\.0\.0:7657|\[::1\]:7657|\[::\]:7657'; then
+if ss -lntH 2>/dev/null |
+   awk '$4 ~ /(^|:)7657$/ {found=1} END {exit !found}'; then
 
     echo -e "${GREEN}[OK] Router console port 7657 listening${NC}"
 
@@ -1104,15 +1141,14 @@ else
 
 fi
 
-if ss -lnt 2>/dev/null |
-   grep -Eq \
-   '127\.0\.0\.1:4444|0\.0\.0\.0:4444|\[::1\]:4444|\[::\]:4444'; then
+if ss -lntH 2>/dev/null |
+   awk '$4 ~ /(^|:)4444$/ {found=1} END {exit !found}'; then
 
     echo -e "${GREEN}[OK] HTTP proxy port 4444 listening${NC}"
 
 else
 
-    echo -e "${RED}[FAIL] HTTP proxy port 4444 not listening${NC}"
+    echo -e "${YELLOW}[WARNING] HTTP proxy port 4444 not currently listening${NC}"
 
 fi
 
@@ -1312,9 +1348,10 @@ echo "============================================"
 echo " FINAL PORT CHECK"
 echo "============================================"
 
-ss -lntp | grep -E ':(4444|4445|7657)\b' || true
+ss -lntp 2>/dev/null |
+    grep -E ':(4444|4445|7657)\b' || true
 
 echo
 echo "============================================"
 echo " DONE"
-echo "============================================
+echo "============================================"
