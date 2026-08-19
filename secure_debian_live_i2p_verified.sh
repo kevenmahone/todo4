@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================================================
-# Secure Debian 13 Trixie + Java I2P + I2PSnark
+# Secure Debian 13 Trixie the live debian + Java I2P + I2PSnark
 #
 # Based on original user-provided script.
 #
